@@ -65,17 +65,19 @@ start the bridge with the page's `document.modelContext`.
 
 ```ts
 import {
-  createHttpTransport,
+  createWebSocketTransport,
   startPageBridge,
   type WebMcpModelContext,
 } from "@searchboxlabs/webmcp-bridge";
 
 const sessionId = new URL(location.href).searchParams.get("session")!;
+const token = new URLSearchParams(location.hash.slice(1)).get("token")!;
 
-const transport = createHttpTransport({
-  baseUrl: location.origin,
+const transport = createWebSocketTransport({
+  url: "wss://relay-webmcpbridge.searchboxlabs.org/v1/ws",
   sessionId,
   source: "page",
+  token,
 });
 
 const stop = await startPageBridge({
@@ -110,13 +112,14 @@ by the page.
 ```ts
 import {
   connectAgentBridge,
-  createHttpTransport,
+  createWebSocketTransport,
 } from "@searchboxlabs/webmcp-bridge";
 
-const transport = createHttpTransport({
-  baseUrl: "https://app.example",
+const transport = createWebSocketTransport({
+  url: "wss://relay-webmcpbridge.searchboxlabs.org/v1/ws",
   sessionId: "abc123",
   source: "agent",
+  token: process.env.WEBMCP_BRIDGE_SESSION_TOKEN!,
 });
 
 const bridge = await connectAgentBridge(transport);
@@ -131,6 +134,7 @@ const result = await bridge.invoke("play_track_for_room", {
 
 console.log(result);
 bridge.close();
+transport.close();
 ```
 
 An LLM host can expose the result of `waitForTools()` as its available tool
@@ -161,7 +165,48 @@ result and lets the page ignore duplicate requests during its current lifetime.
 
 ## Transports
 
-### HTTP polling
+### WebSocket relay
+
+`createWebSocketTransport()` is the primary cross-process transport. The page
+and agent create separate endpoints with the same session ID and temporary
+Phase 1 token:
+
+```ts
+const page = createWebSocketTransport({
+  url: "wss://relay-webmcpbridge.searchboxlabs.org/v1/ws",
+  sessionId,
+  token,
+  source: "page",
+});
+
+const agent = createWebSocketTransport({
+  url: "wss://relay-webmcpbridge.searchboxlabs.org/v1/ws",
+  sessionId,
+  token,
+  source: "agent",
+});
+```
+
+It provides:
+
+- WebSocket `HELLO` and session joining.
+- Automatic bounded reconnection.
+- Server-assigned message sequences.
+- Recipient acknowledgements after subscribers finish processing.
+- A bounded local history for messages received before bridge subscription.
+- Reconnect cursors through `after_sequence`.
+- Five-minute server replay for unacknowledged messages.
+- Application heartbeats.
+- Publish completion only after relay `ACCEPTED`.
+
+The token must contain 32–256 characters. Generate it using a cryptographically
+secure random source and deliver it only to the intended page and agent. It is
+a temporary Phase 1 access secret, not the planned production identity and
+authorization system.
+
+Call `transport.close()` when the integration is disposed.
+
+### HTTP polling prototype
 
 `createHttpTransport()` expects a session endpoint with this shape:
 
@@ -190,9 +235,10 @@ POST /api/sessions/:sessionId/protocol
 }
 ```
 
-The included implementation polls this endpoint and deduplicates envelopes by
-ID. The relay must assign every stored envelope an `id`, `source`, `message`,
-and `createdAt` value.
+The included HTTP implementation polls this endpoint and deduplicates envelopes
+by ID. It remains available for compatibility and controlled prototypes, but
+it is not the recommended transport for active remote sessions. The server must
+assign every stored envelope an `id`, `source`, `message`, and `createdAt`.
 
 ### In-memory
 
@@ -214,7 +260,9 @@ another relay:
 type BridgeTransport = {
   publish(message: BridgeMessage): Promise<void>;
   history(): Promise<BridgeEnvelope[]>;
-  subscribe(listener: (envelope: BridgeEnvelope) => void): () => void;
+  subscribe(
+    listener: (envelope: BridgeEnvelope) => void | Promise<void>
+  ): () => void;
 };
 ```
 
@@ -279,6 +327,12 @@ npm install
 npm run typecheck
 npm test
 npm run build
+```
+
+Run the integration test against the deployed Phase 1 relay:
+
+```sh
+WEBMCP_BRIDGE_RELAY_URL=wss://relay-webmcpbridge.searchboxlabs.org/v1/ws npm test
 ```
 
 ## Current status

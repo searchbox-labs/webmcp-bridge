@@ -98,9 +98,9 @@ export async function startPageBridge({
     }
   }
 
-  const unsubscribe = transport.subscribe((envelope) => {
+  const unsubscribe = transport.subscribe(async (envelope) => {
     if (envelope.source !== "agent" || envelope.message.type !== "INVOKE") return;
-    void execute(envelope.message);
+    await execute(envelope.message);
   });
   const onToolChange = () => void publishTools();
   modelContext.addEventListener("toolchange", onToolChange);

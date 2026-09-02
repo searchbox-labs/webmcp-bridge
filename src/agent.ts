@@ -40,12 +40,16 @@ export async function connectAgentBridge(transport: BridgeTransport): Promise<Ag
     else invocation.reject(new Error(message.error));
   }
 
-  for (const envelope of await transport.history()) {
-    if (envelope.source === "page" && envelope.message.type !== "INVOKE") accept(envelope.message);
-  }
+  // Subscribe before reading history so a page message cannot arrive in the
+  // gap between the initial history request and live subscription. A message
+  // observed through both paths is harmless: manifests replace by version and
+  // completed request IDs are removed from `pending` after the first result.
   const unsubscribe = transport.subscribe((envelope) => {
     if (envelope.source === "page" && envelope.message.type !== "INVOKE") accept(envelope.message);
   });
+  for (const envelope of await transport.history()) {
+    if (envelope.source === "page" && envelope.message.type !== "INVOKE") accept(envelope.message);
+  }
 
   function waitForTools(timeoutMs = 5_000): Promise<BridgeTool[]> {
     if (manifest) return Promise.resolve(manifest.tools);
