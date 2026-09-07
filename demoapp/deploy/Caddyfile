@@ -1,0 +1,35 @@
+relay-webmcpbridge.searchboxlabs.org {
+	encode zstd gzip
+
+	route {
+		redir /webmcp-bridge/demoapp /webmcp-bridge/demoapp/ 308
+
+		handle_path /webmcp-bridge/demoapp/* {
+			root * /srv/webmcp-bridge-demoapp/current
+			try_files {path} {path}/
+			file_server
+		}
+
+		handle {
+			reverse_proxy 127.0.0.1:8080
+		}
+	}
+}
+
+searchboxlabs.org, www.searchboxlabs.org {
+	encode zstd gzip
+
+	route {
+		redir /webmcp-bridge/demoapp /webmcp-bridge/demoapp/ 308
+
+		handle_path /webmcp-bridge/demoapp/* {
+			root * /srv/webmcp-bridge-demoapp/current
+			try_files {path} {path}/
+			file_server
+		}
+
+		handle {
+			respond "Not Found" 404
+		}
+	}
+}

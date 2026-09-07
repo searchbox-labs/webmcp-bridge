@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { connectAgentBridge } from "../src/agent.js";
 import { createEncryptedTransport, deriveRelaySessionToken, generateSessionKeyPair } from "../src/encryption.js";
-import { startPageBridge, type RegisteredWebMcpTool } from "../src/page.js";
+import { connectPageActionBridge, startPageBridge, type RegisteredWebMcpTool } from "../src/page.js";
 import { createInMemoryTransportPair } from "../src/transport.js";
 
 test("encrypts tools, invocations, and results end to end", async () => {
@@ -74,28 +74,86 @@ test("accepts a precomputed X25519 shared secret at the native runtime boundary"
 test("rejects replayed encrypted messages", async () => {
   const raw = createInMemoryTransportPair();
   const [pageKeys, agentKeys] = await Promise.all([generateSessionKeyPair(), generateSessionKeyPair()]);
+  const pageTransport = await createEncryptedTransport({
+    transport: raw.page,
+    sessionId: "replay-test",
+    source: "page",
+    privateKey: pageKeys.privateKey,
+    peerPublicKey: agentKeys.publicKey,
+  });
+  await pageTransport.publish({ type: "TOOLS", protocol_version: 1, tools_version: 1, tools: [] });
+  const original = (await raw.agent.history())[0]!;
+  let replay = false;
+  const replayTransport = {
+    async publish() { throw new Error("unused"); },
+    async history() {
+      return [replay ? { ...original, id: `${original.id}-replay` } : original];
+    },
+    subscribe() { return () => undefined; },
+  };
+  const agentTransport = await createEncryptedTransport({
+    transport: replayTransport,
+    sessionId: "replay-test",
+    source: "agent",
+    privateKey: agentKeys.privateKey,
+    peerPublicKey: pageKeys.publicKey,
+  });
+  const first = await agentTransport.history();
+  assert.equal(first[0]?.message.type, "TOOLS");
+  replay = true;
+  await assert.rejects(agentTransport.history(), /replayed encrypted bridge message/i);
+  pageTransport.close();
+  agentTransport.close();
+});
+
+test("shares each decrypted envelope across multiple page bridges", async () => {
+  const raw = createInMemoryTransportPair();
+  const [pageKeys, agentKeys] = await Promise.all([generateSessionKeyPair(), generateSessionKeyPair()]);
   const [pageTransport, agentTransport] = await Promise.all([
     createEncryptedTransport({
       transport: raw.page,
-      sessionId: "replay-test",
+      sessionId: "multiple-page-bridges",
       source: "page",
       privateKey: pageKeys.privateKey,
       peerPublicKey: agentKeys.publicKey,
     }),
     createEncryptedTransport({
       transport: raw.agent,
-      sessionId: "replay-test",
+      sessionId: "multiple-page-bridges",
       source: "agent",
       privateKey: agentKeys.privateKey,
       peerPublicKey: pageKeys.publicKey,
     }),
   ]);
-  await pageTransport.publish({ type: "TOOLS", protocol_version: 1, tools_version: 1, tools: [] });
-  const first = await agentTransport.history();
-  assert.equal(first[0]?.message.type, "TOOLS");
-  await assert.rejects(agentTransport.history(), /replayed encrypted bridge message/i);
-  pageTransport.close();
+  const actionBridge = await connectPageActionBridge(pageTransport);
+  const modelContext = Object.assign(new EventTarget(), {
+    async getTools() { return []; },
+    async executeTool() { throw new Error("unused"); },
+  });
+  const stopPageBridge = await startPageBridge({ modelContext, transport: pageTransport });
+  const received: string[] = [];
+  const agent = await connectAgentBridge(agentTransport, {
+    async onActionRequest(action) {
+      received.push(action);
+      return { action, accepted: true };
+    },
+  });
+
+  assert.deepEqual(await actionBridge.request("first_action", {}), {
+    action: "first_action",
+    accepted: true,
+  });
+  assert.deepEqual(await actionBridge.request("get_0g_backup_wallet", {}), {
+    action: "get_0g_backup_wallet",
+    accepted: true,
+  });
+  assert.deepEqual(received, ["first_action", "get_0g_backup_wallet"]);
+
+  agent.close();
+  stopPageBridge();
+  actionBridge.close();
   agentTransport.close();
+  pageTransport.close();
 });
 
 test("rejects encrypted messages with tampered authenticated metadata", async () => {

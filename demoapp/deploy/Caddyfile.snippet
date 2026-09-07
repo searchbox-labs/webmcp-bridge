@@ -1,0 +1,14 @@
+# Add these handlers before the relay's catch-all reverse_proxy handler.
+# They do not alter /v1/ws, /v1/discovery, /register, /connect, or /healthz.
+
+redir /webmcp-bridge/demoapp /webmcp-bridge/demoapp/ 308
+
+handle_path /webmcp-bridge/demoapp/* {
+    root * /srv/webmcp-bridge-demoapp/current
+    try_files {path} {path}/
+    file_server
+}
+
+handle {
+    reverse_proxy 127.0.0.1:8080
+}

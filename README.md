@@ -54,6 +54,44 @@ page adds or removes tools, the agent's actionable tool surface changes with it.
 npm install @searchboxlabs/webmcp-bridge
 ```
 
+## Live demo
+
+[![Watch the WebMCP Bridge demo video](https://img.youtube.com/vi/2zN_Y5v7_cc/maxresdefault.jpg)](https://youtu.be/2zN_Y5v7_cc)
+
+[Watch on YouTube](https://youtu.be/2zN_Y5v7_cc) ·
+[Open the live demo](https://relay-webmcpbridge.searchboxlabs.org/webmcp-bridge/demoapp/)
+
+The embedded demo pairs this page with a user-owned runtime, builds an
+emotionally sequenced playlist, starts Spotify through the minimized desktop
+player, and optionally stores an encrypted checkpoint on 0G Mainnet.
+
+- [Runtime setup](https://relay-webmcpbridge.searchboxlabs.org/webmcp-bridge/demoapp/setup/)
+- [Public 0G transaction receipt](https://relay-webmcpbridge.searchboxlabs.org/webmcp-bridge/demoapp/data.json)
+- [Demo application source](./demoapp)
+
+The public receipt contains only network, transaction, root-hash, fee, and file
+layout metadata. It does not contain wallet keys, plaintext emotional data,
+complete lyrics, or the encrypted checkpoint payload.
+
+### Demo backup transaction
+
+The demo encrypted a user-confirmed checkpoint locally in the runtime and
+stored the ciphertext on 0G Mainnet using a splittable upload:
+
+| Field | Value |
+| --- | --- |
+| Network | 0G Mainnet (chain ID `16661`) |
+| Transaction hash | `0x365c8d04abd9e41c465b139ae974e6aa822e1fe190c9e532b5b6e6b612b34586` |
+| 0G root hash | `0xd6ad71e721335d61068f8a70a7c8ffe5eec1f1d1e467ae4d0bfa17e103563fb3` |
+| Storage fee | `338070094582` wei |
+| Encrypted file size | `2,760` bytes |
+| Layout | 1 segment, 11 chunks, 2 shards |
+| Transaction sequence | `214000` |
+
+Only the receipt metadata above is public. The runtime's wallet key, backup
+encryption key, and plaintext checkpoint are not included in the repository or
+the public `data.json` response.
+
 Available entry points:
 
 - `@searchboxlabs/webmcp-bridge/page`

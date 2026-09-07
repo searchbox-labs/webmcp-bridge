@@ -3,6 +3,7 @@ node_modules/
 dist/
 coverage/
 *.tgz
+demoapp/webmcp-bridge-demoapp.tar.gz
 *.tsbuildinfo
 
 # Environment files and local secrets
@@ -30,6 +31,14 @@ runtime-identity*
 **/runtime-identity*
 owner-passkey*
 **/owner-passkey*
+0g-backup-identity*
+**/0g-backup-identity*
+0g-backup-receipts*
+**/0g-backup-receipts*
+0g-wallet*
+**/0g-wallet*
+backup-encryption-key*
+**/backup-encryption-key*
 storage-state*.json
 **/storage-state*.json
 playwright/.auth/
@@ -43,6 +52,10 @@ playwright/.auth/
 *.sqlite-*
 
 # Tests, logs, and temporary files
+.next/
+**/.next/
+.vercel/
+**/.vercel/
 test-results/
 playwright-report/
 *.log

@@ -1,0 +1,8 @@
+.vercel/
+.env*
+!.env.example
+.next/
+out/
+node_modules/
+*.tsbuildinfo
+webmcp-bridge-demoapp.tar.gz

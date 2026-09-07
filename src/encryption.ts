@@ -162,6 +162,14 @@ export async function createEncryptedTransport({
   );
   const senderInstanceId = crypto.randomUUID();
   const receivedSequences = new Map<string, number>();
+  // One encrypted transport can serve multiple logical bridges (for example,
+  // the page tool bridge and the browser-action bridge). The underlying
+  // transport delivers the same envelope to every subscriber, so decrypt it
+  // once and share the result. Without this cache, the second subscriber sees
+  // the first subscriber's valid message as a replay and can prevent the
+  // WebSocket transport from acknowledging it.
+  const decryptedEnvelopes = new Map<string, Promise<BridgeEnvelope>>();
+  const decryptedEnvelopeLimit = 1_024;
   let sendSequence = 0;
 
   async function decryptEnvelope(envelope: BridgeEnvelope): Promise<BridgeEnvelope> {
@@ -191,6 +199,21 @@ export async function createEncryptedTransport({
     }
     receivedSequences.set(wire.sender_instance_id, wire.sequence);
     return { ...envelope, message };
+  }
+
+  function decryptEnvelopeOnce(envelope: BridgeEnvelope): Promise<BridgeEnvelope> {
+    const existing = decryptedEnvelopes.get(envelope.id);
+    if (existing) return existing;
+
+    const pending = decryptEnvelope(envelope);
+    decryptedEnvelopes.set(envelope.id, pending);
+    if (decryptedEnvelopes.size > decryptedEnvelopeLimit) {
+      decryptedEnvelopes.delete(decryptedEnvelopes.keys().next().value!);
+    }
+    void pending.catch(() => {
+      if (decryptedEnvelopes.get(envelope.id) === pending) decryptedEnvelopes.delete(envelope.id);
+    });
+    return pending;
   }
 
   return {
@@ -223,13 +246,13 @@ export async function createEncryptedTransport({
       return Promise.all(
         (await transport.history())
           .filter((envelope) => envelope.source !== source)
-          .map(decryptEnvelope),
+          .map(decryptEnvelopeOnce),
       );
     },
     subscribe(listener) {
       return transport.subscribe(async (envelope) => {
         if (envelope.source === source) return;
-        await listener(await decryptEnvelope(envelope));
+        await listener(await decryptEnvelopeOnce(envelope));
       });
     },
     close() {

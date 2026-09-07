@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "status": "stored",
+  "network": {
+    "name": "0G Mainnet",
+    "chainId": 16661
+  },
+  "upload": {
+    "method": "splittable",
+    "rootHash": "0xd6ad71e721335d61068f8a70a7c8ffe5eec1f1d1e467ae4d0bfa17e103563fb3",
+    "transactionHash": "0x365c8d04abd9e41c465b139ae974e6aa822e1fe190c9e532b5b6e6b612b34586",
+    "storageFeeWei": "338070094582",
+    "transactionSequence": 214000
+  },
+  "file": {
+    "sizeBytes": 2760,
+    "numSegments": 1,
+    "numChunks": 11
+  },
+  "storageTask": {
+    "clientIndex": 0,
+    "taskSize": 1,
+    "segmentIndex": 0,
+    "numShards": 2
+  },
+  "privacy": {
+    "containsKeys": false,
+    "containsPlaintextCheckpoint": false,
+    "containsCompleteLyrics": false
+  }
+}
