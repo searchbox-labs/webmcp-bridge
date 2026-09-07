@@ -40,7 +40,23 @@ export type ErrorMessage = {
   error: string;
 };
 
-export type BridgeMessage = ToolsMessage | InvokeMessage | ResultMessage | ErrorMessage;
+export type ActionRequestMessage = {
+  type: "ACTION_REQUEST";
+  protocol_version: typeof BRIDGE_PROTOCOL_VERSION;
+  request_id: string;
+  action: string;
+  arguments: JsonObject;
+};
+
+export type ActionResultMessage = {
+  type: "ACTION_RESULT";
+  protocol_version: typeof BRIDGE_PROTOCOL_VERSION;
+  request_id: string;
+  result: unknown;
+  error?: string;
+};
+
+export type BridgeMessage = ToolsMessage | InvokeMessage | ResultMessage | ErrorMessage | ActionRequestMessage | ActionResultMessage;
 export type BridgePeer = "page" | "agent";
 
 export type BridgeEnvelope = {
@@ -58,6 +74,8 @@ export function isBridgeMessage(value: unknown): value is BridgeMessage {
     (candidate.type === "TOOLS" ||
       candidate.type === "INVOKE" ||
       candidate.type === "RESULT" ||
-      candidate.type === "ERROR")
+      candidate.type === "ERROR" ||
+      candidate.type === "ACTION_REQUEST" ||
+      candidate.type === "ACTION_RESULT")
   );
 }

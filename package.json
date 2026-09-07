@@ -1,6 +1,6 @@
 {
   "name": "@searchboxlabs/webmcp-bridge",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "description": "Bridge live WebMCP tools between browser pages and external agent runtimes.",
   "license": "MIT",
   "repository": {
@@ -23,13 +23,29 @@
       "types": "./dist/agent.d.ts",
       "import": "./dist/agent.js"
     },
+    "./encryption": {
+      "types": "./dist/encryption.d.ts",
+      "import": "./dist/encryption.js"
+    },
+    "./enrollment": {
+      "types": "./dist/enrollment.d.ts",
+      "import": "./dist/enrollment.js"
+    },
     "./page": {
       "types": "./dist/page.d.ts",
       "import": "./dist/page.js"
     },
+    "./pairing": {
+      "types": "./dist/pairing.d.ts",
+      "import": "./dist/pairing.js"
+    },
     "./protocol": {
       "types": "./dist/protocol.d.ts",
       "import": "./dist/protocol.js"
+    },
+    "./registration": {
+      "types": "./dist/registration.d.ts",
+      "import": "./dist/registration.js"
     },
     "./transport": {
       "types": "./dist/transport.d.ts",

@@ -4,6 +4,7 @@ import {
   type ErrorMessage,
   type ResultMessage,
   type ToolsMessage,
+  type ActionRequestMessage,
 } from "./protocol.js";
 import type { BridgeTransport } from "./transport.js";
 
@@ -20,10 +21,34 @@ export type AgentBridge = {
   close(): void;
 };
 
-export async function connectAgentBridge(transport: BridgeTransport): Promise<AgentBridge> {
+export type AgentBridgeOptions = {
+  onActionRequest?: (action: string, args: Record<string, unknown>) => Promise<unknown>;
+};
+
+export async function connectAgentBridge(transport: BridgeTransport, options: AgentBridgeOptions = {}): Promise<AgentBridge> {
   let manifest: ToolsMessage | undefined;
   const pending = new Map<string, PendingInvocation>();
   const toolWaiters = new Set<(tools: BridgeTool[]) => void>();
+  const completedActions = new Map<string, { result: unknown; error?: string }>();
+
+  async function handleAction(message: ActionRequestMessage) {
+    const completed = completedActions.get(message.request_id);
+    if (completed) {
+      await transport.publish({ type: "ACTION_RESULT", protocol_version: BRIDGE_PROTOCOL_VERSION, request_id: message.request_id, ...completed });
+      return;
+    }
+    try {
+      if (!options.onActionRequest) throw new Error("The runtime does not accept browser-initiated actions.");
+      const result = await options.onActionRequest(message.action, message.arguments);
+      completedActions.set(message.request_id, { result });
+      await transport.publish({ type: "ACTION_RESULT", protocol_version: BRIDGE_PROTOCOL_VERSION, request_id: message.request_id, result });
+    } catch (error) {
+      const failure = { result: null, error: error instanceof Error ? error.message : String(error) };
+      completedActions.set(message.request_id, failure);
+      await transport.publish({ type: "ACTION_RESULT", protocol_version: BRIDGE_PROTOCOL_VERSION, request_id: message.request_id, ...failure });
+    }
+    if (completedActions.size > 512) completedActions.delete(completedActions.keys().next().value!);
+  }
 
   function accept(message: ToolsMessage | ResultMessage | ErrorMessage) {
     if (message.type === "TOOLS") {
@@ -45,10 +70,19 @@ export async function connectAgentBridge(transport: BridgeTransport): Promise<Ag
   // observed through both paths is harmless: manifests replace by version and
   // completed request IDs are removed from `pending` after the first result.
   const unsubscribe = transport.subscribe((envelope) => {
-    if (envelope.source === "page" && envelope.message.type !== "INVOKE") accept(envelope.message);
+    if (envelope.source !== "page") return;
+    // Do not hold the transport delivery/ACK path open while an action invokes
+    // page tools over the same transport. Those RESULT messages must be able
+    // to reach this subscriber for the action to complete.
+    if (envelope.message.type === "ACTION_REQUEST") {
+      void handleAction(envelope.message);
+      return;
+    }
+    if (envelope.message.type === "TOOLS" || envelope.message.type === "RESULT" || envelope.message.type === "ERROR") accept(envelope.message);
   });
   for (const envelope of await transport.history()) {
-    if (envelope.source === "page" && envelope.message.type !== "INVOKE") accept(envelope.message);
+    if (envelope.source === "page" && envelope.message.type === "ACTION_REQUEST") await handleAction(envelope.message);
+    else if (envelope.source === "page" && (envelope.message.type === "TOOLS" || envelope.message.type === "RESULT" || envelope.message.type === "ERROR")) accept(envelope.message);
   }
 
   function waitForTools(timeoutMs = 5_000): Promise<BridgeTool[]> {
@@ -100,6 +134,7 @@ export async function connectAgentBridge(transport: BridgeTransport): Promise<Ag
         invocation.reject(new Error("Agent bridge closed."));
       }
       pending.clear();
+      completedActions.clear();
     },
   };
 }

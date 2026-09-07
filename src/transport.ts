@@ -106,6 +106,7 @@ type ReadyWaiter = {
 type PendingPublish = {
   resolve: () => void;
   reject: (error: Error) => void;
+  message: BridgeMessage;
 };
 
 export type WebSocketTransportOptions = {
@@ -219,6 +220,13 @@ export function createWebSocketTransport({
       ready = true;
       reconnectAttempt = 0;
       resolveReadyWaiters();
+      // A connection can disappear after PUBLISH but before ACCEPTED. Keep
+      // those messages queued and resend them after rejoining. Bridge request
+      // IDs make this safe if the relay accepted a message but its ACCEPTED
+      // response was lost during the disconnect.
+      for (const pending of pendingPublishes) {
+        send({ type: "PUBLISH", message: pending.message });
+      }
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       heartbeatTimer = setInterval(() => {
         if (ready) {
@@ -315,7 +323,6 @@ export function createWebSocketTransport({
       ready = false;
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       heartbeatTimer = undefined;
-      rejectPendingPublishes(new Error("WebSocket relay disconnected before accepting the message."));
       scheduleReconnect();
     });
     connection.addEventListener("error", () => {
@@ -329,7 +336,7 @@ export function createWebSocketTransport({
     async publish(message) {
       await waitUntilReady();
       return new Promise<void>((resolve, reject) => {
-        const pending = { resolve, reject };
+        const pending = { resolve, reject, message };
         pendingPublishes.push(pending);
         try {
           send({ type: "PUBLISH", message });

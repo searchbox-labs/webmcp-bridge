@@ -1,6 +1,59 @@
+# Dependencies and package output
 node_modules/
 dist/
+coverage/
 *.tgz
+*.tsbuildinfo
+
+# Environment files and local secrets
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
 .npmrc
-.DS_Store
+**/.npmrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+credentials.json
+secrets.json
+**/credentials.json
+**/secrets.json
+
+# Runtime identities, passkeys, and authentication state
+runtime-identity*
+**/runtime-identity*
+owner-passkey*
+**/owner-passkey*
+storage-state*.json
+**/storage-state*.json
+playwright/.auth/
+**/playwright/.auth/
+
+# Local databases and persistent state
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+
+# Tests, logs, and temporary files
+test-results/
+playwright-report/
 *.log
+*.log.*
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
