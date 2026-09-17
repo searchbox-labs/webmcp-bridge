@@ -59,7 +59,7 @@ npm install @searchboxlabs/webmcp-bridge
 [![Watch the WebMCP Bridge demo video](https://img.youtube.com/vi/2zN_Y5v7_cc/maxresdefault.jpg)](https://youtu.be/2zN_Y5v7_cc)
 
 [Watch on YouTube](https://youtu.be/2zN_Y5v7_cc) ·
-[Open the live demo](https://relay-webmcpbridge.searchboxlabs.org/webmcp-bridge/demoapp/)
+[Open the live demo](https://searchboxlabs.org/webmcp-bridge/demoapp/)
 
 The embedded demo pairs this page with a user-owned runtime, builds an
 emotionally sequenced playlist, starts Spotify through the minimized desktop
